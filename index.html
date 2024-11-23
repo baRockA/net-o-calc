@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"> <!-- Zeichencodierung auf UTF-8 setzen -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Responsive Design für mobile Geräte -->
+    <title>Net-O-Calc</title> <!-- Titel der Webseite -->
+</head>
+
+<body>
+    <section style="font-size: 2rem; font-family: monospace;"> <!-- Hauptbereich mit Schriftgröße und Schriftart -->
+        <h1>Net-O-Calc (Netzwerkrechner)</h1> <!-- Überschrift -->
+        <div style="display: flex; flex-direction: column;"> <!-- Flexbox für vertikale Anordnung -->
+            <div id="info" style="border: 1px dashed gray; background-color: lightgray;"></div> <!-- Informationsbereich -->
+
+            <!-- Eingabefelder für die Host-IP-Adresse und CIDR -->
+            <div>
+                <label> Host IPv4: </label>
+                <input type="number" min="0" max="255" id="ip0" class="bin" value="192"> .
+                <input type="number" min="0" max="255" id="ip1" class="bin" value="168"> .
+                <input type="number" min="0" max="255" id="ip2" class="bin" value="0"> .
+                <input type="number" min="0" max="255" id="ip3" class="bin" value="1"> /
+                <input type="number" min="0" max="32" id="cidr" value="24"> <!-- CIDR-Wert -->
+            </div>
+
+            <!-- Eingabefelder für die Subnetzmaske -->
+            <div>
+                <label> Subnetzmaske: </label>
+                <input type="number" min="0" max="255" id="sub0" value="255" class="bin"> .
+                <input type="number" min="0" max="255" id="sub1" value="255" class="bin"> .
+                <input type="number" min="0" max="255" id="sub2" value="255" class="bin"> .
+                <input type="number" min="0" max="255" id="sub3" value="0" class="bin">
+            </div>
+
+            <!-- Eingabefeld für die Anzahl der Hosts im Subnetz -->
+            <div>
+                <label>Anzahl Hosts im Subnetz:</label>
+                <input type="number" min="0" max="4294967294" id="hosts" value="254">
+            </div>
+
+            <!-- Eingabefelder für den Adressbereich -->
+            <div>
+                <label>Adressbereich: </label>
+                <input type="text" id="startIp" value="192.168.0.1"> bis
+                <input type="text" id="endIp" value="192.168.0.254">
+            </div>
+
+            <!-- Abschnitt für die binäre Darstellung -->
+            <div>
+                <h3>Binär</h3>
+                <p>Netzwerkanteil durch Subnetzmasken 1er definiert <span style="color:red">(rot)</span>. Hostanteil
+                    <span style="color:blue">(blau)</span> ändert sich je Host.</p>
+                <table>
+                    <tr>
+                        <td>IP: </td>
+                        <td id="bin_ip"><span style="color:red">11000000.10101000.00000000</span>.<span
+                                style="color:blue">00000001</span></td>
+                        <td> -> </td>
+                        <td id="ip">192.168.0.1</td>
+                    </tr>
+                    <tr>
+                        <td>Subnetz: </td>
+                        <td id="bin_sub"><span style="color:red">11111111.11111111.11111111</span>.<span
+                                style="color:blue">00000000</span></td>
+                        <td> -> </td>
+                        <td id="sub">255.255.255.0</td>
+                    </tr>
+                    <tr>
+                        <td>Netzadresse: </td>
+                        <td id="bin_net"><span style="color:red">11000000.10101000.00000000</span>.<span
+                                style="color:blue">00000000</span></td>
+                        <td> -> </td>
+                        <td id="net">192.168.0.0</td>
+                    </tr>
+                    <tr>
+                        <td>Broadcast: </td>
+                        <td id="bin_brd"><span style="color:red">11000000.10101000.00000000</span>.<span
+                                style="color:blue">11111111</span></td>
+                        <td> -> </td>
+                        <td id="brd">192.168.0.255</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <script>
+            const infoText = document.getElementById('info'); // Referenz auf den Informationsbereich
+
+            // Event-Listener für Eingaben in den binären Feldern
+            document.querySelectorAll('.bin').forEach(element => element.addEventListener('input', (event) => updateTable(event)));
+
+            // Funktion zur Aktualisierung der Tabelle basierend auf Eingaben
+            function updateTable(event) {
+                if (!event || event.target.validity.valid) {
+                    // Hole die Werte der Subnetzmaske
+                    const so1 = parseInt(document.getElementById('sub0').value);
+                    const so2 = parseInt(document.getElementById('sub1').value);
+                    const so3 = parseInt(document.getElementById('sub2').value);
+                    const so4 = parseInt(document.getElementById('sub3').value);
+
+                    const sub = so1 + "." + so2 + "." + so3 + "." + so4; // Subnetzmaske als String
+                    const cidr = subnetzmaskeZuCIDR(so1, so2, so3, so4); // CIDR berechnen
+
+                    // Hole die Werte der IP-Adresse
+                    const io1 = parseInt(document.getElementById('ip0').value);
+                    const io2 = parseInt(document.getElementById('ip1').value);
+                    const io3 = parseInt(document.getElementById('ip2').value);
+                    const io4 = parseInt(document.getElementById('ip3').value);
+
+                    const ip = io1 + "." + io2 + "." + io3 + "." + io4; // IP-Adresse als String
+
+                    // Überprüfe die Gültigkeit der Subnetzmaske
+                    if (istGueltigeSubnetzmaske(so1, so2, so3, so4)) {
+                        // CIDR im Eingabefeld aktualisieren
+                        document.getElementById('cidr').value = cidr;
+
+                        // Berechne die Anzahl der Hosts
+                        document.getElementById('hosts').value = berechneAnzahlHosts(cidr);
+                    } else {
+                        infoText.innerHTML = 'Bitte geben Sie eine gültige Subnetzmaske ein';
+                        return; // Beende die Funktion, wenn die Subnetzmaske ungültig ist
+                    }
+
+                    // Ausgabe in der Tabelle aktualisieren
+                    document.getElementById('bin_sub').innerHTML = faerbeBinaer(ipZuBinär(sub), cidr);
+                    document.getElementById('sub').innerText = sub;
+                    document.getElementById('bin_ip').innerHTML = faerbeBinaer(ipZuBinär(ip), cidr);
+                    document.getElementById('ip').innerText = ip;
+
+                    // Berechne die Netzwerk- und Broadcastadresse
+                    const brd = berechneBroadcastadresse(ip, sub);
+                    const netz = berechneNetzwerkadresse(ip, sub);
+                    document.getElementById('bin_net').innerHTML = faerbeBinaer(ipZuBinär(netz), cidr);
+                    document.getElementById('net').innerText = netz;
+                    document.getElementById('bin_brd').innerHTML = faerbeBinaer(ipZuBinär(brd), cidr);
+                    document.getElementById('brd').innerText = brd;
+
+                    // Update die Start- und End-IP-Felder
+                    if (event && event.target.id.includes("ip")) {
+                        document.getElementById('startIp').value = netz;
+                        document.getElementById('endIp').value = brd;   
+                    }
+
+                    infoText.innerHTML = ''; // Leere den Informationsbereich
+                } else {
+                    infoText.innerHTML = 'Die Eingabe ist fehlerhaft!'; // Fehlernachricht
+                }
+            }
+
+            // Event-Listener für Änderungen im CIDR-Feld
+            document.querySelector('#cidr').addEventListener('input', (event) => updateSubnetmask(event));
+
+            // Funktion zur Aktualisierung der Subnetzmaske basierend auf CIDR
+            function updateSubnetmask(event) {
+                let bits = parseInt(document.querySelector('#cidr').value, 10);
+                // Berechne die Anzahl der Hosts neu
+                document.getElementById('hosts').value = berechneAnzahlHosts(bits);
+
+                // Berechnung der Subnetzmaske
+                const maske = [];
+                for (let i = 0; i < 4; i++) {
+                    if (bits >= 8) {
+                        maske.push(255);
+                        bits -= 8;
+                    } else {
+                        maske.push(256 - Math.pow(2, 8 - bits));
+                        bits = 0;
+                    }
+                }
+                // Setze die Subnetzmaske in die Eingabefelder
+                for (let i = 0; i < 4; i++) {
+                    document.getElementById('sub' + i).value = maske[i];
+                    updateTable(); // Aktualisiere die Tabelle
+                }
+            }
+
+            // Event-Listener für Änderungen in der Anzahl der Hosts
+            document.querySelector('#hosts').addEventListener('change', (event) => {
+                document.getElementById('cidr').value = berechneCIDR(parseInt(event.target.value));
+                updateSubnetmask(); // Aktualisiere die Subnetzmaske
+            });
+
+            // Funktion zur Berechnung der CIDR-Notation aus der Subnetzmaske
+            function subnetzmaskeZuCIDR(o1, o2, o3, o4) {
+                const maske = (o1 << 24) | (o2 << 16) | (o3 << 8) | o4;
+                let cidr = 0;
+
+                for (let i = 31; i >= 0; i--) {
+                    if ((maske & (1 << i)) !== 0) {
+                        cidr++; // Zähle die Anzahl der 1-Bits
+                    } else {
+                        break; // Stoppe, wenn ein 0-Bit gefunden wird
+                    }
+                }
+
+                return cidr; // Gebe die CIDR-Notation zurück
+            }
+
+            // Event-Listener für Änderungen in den IP-Bereichen
+            document.querySelector('#startIp').addEventListener('change', (event) => ipBereich2Subnetz(event));
+            document.querySelector('#endIp').addEventListener('change', (event) => ipBereich2Subnetz(event));
+
+            // Funktion zur Berechnung der CIDR aus einem IP-Bereich
+            function ipBereich2Subnetz(event) {
+                const startBinär = ipZuBinär(document.querySelector('#startIp').value);
+                const endBinär = ipZuBinär(document.querySelector('#endIp').value);
+
+                // Bestimme die Anzahl der gemeinsamen Bits
+                let gemeinsameBits = 0;
+                for (let i = 0; i < 32; i++) {
+                    if (startBinär[i] === endBinär[i]) {
+                        gemeinsameBits++;
+                    } else {
+                        break;
+                    }
+                }
+                // CIDR und Subnetzmaske aktualisieren
+                document.getElementById('cidr').value = gemeinsameBits;
+                updateSubnetmask(); // Aktualisiere die Subnetzmaske
+            }
+
+            // Funktion zur Überprüfung der Gültigkeit der Subnetzmaske
+            function istGueltigeSubnetzmaske(o1, o2, o3, o4) {
+                const oktette = [o1, o2, o3, o4];
+                let mask = 0;
+                let foundZero = false;
+
+                for (let i = 0; i < oktette.length; i++) {
+                    if (foundZero && oktette[i] > 0) {
+                        return false; // Nach einer Null darf keine Eins mehr folgen
+                    }
+                    if (oktette[i] === 255) {
+                        mask += 8;
+                    } else if (oktette[i] === 254) {
+                        mask += 7;
+                        foundZero = true;
+                    } else if (oktette[i] === 252) {
+                        mask += 6;
+                        foundZero = true;
+                    } else if (oktette[i] === 248) {
+                        mask += 5;
+                        foundZero = true;
+                    } else if (oktette[i] === 240) {
+                        mask += 4;
+                        foundZero = true;
+                    } else if (oktette[i] === 224) {
+                        mask += 3;
+                        foundZero = true;
+                    } else if (oktette[i] === 192) {
+                        mask += 2;
+                        foundZero = true;
+                    } else if (oktette[i] === 128) {
+                        mask += 1;
+                        foundZero = true;
+                    } else if (oktette[i] === 0) {
+                        foundZero = true; // Eine Null wurde gefunden
+                    } else {
+                        return false; // Ungültige Oktette
+                    }
+                }
+                return mask > 0 && mask <= 32; // Gültige Subnetzmaske sollte zwischen 1 und 32 Bits haben
+            }
+
+            // Hilfsfunktionen zur IP- und Subnetzmaskenverarbeitung
+            function ipZuBinär(ip) {
+                return ip.split('.').map(Number).map(num => num.toString(2).padStart(8, '0')).join('.');
+            }
+
+            function binärZuIp(binär) {
+                return Array.from({ length: 4 }, (_, i) => parseInt(binär.slice(i * 8, (i + 1) * 8), 2)).join('.');
+            }
+
+            function ipZuTeile(ip) {
+                return ip.split('.').map(Number);
+            }
+
+            function berechneNetzwerkadresse(ip, subnetzmaske) {
+                const ipTeile = ipZuTeile(ip);
+                const subnetzmaskeTeile = ipZuTeile(subnetzmaske);
+
+                // Netzwerkadresse berechnen (bitweise AND)
+                const netzwerkTeile = ipTeile.map((teil, index) => teil & subnetzmaskeTeile[index]);
+                return netzwerkTeile.join('.');
+            }
+
+            function berechneBroadcastadresse(ip, subnetzmaske) {
+                const ipTeile = ipZuTeile(ip);
+                const subnetzmaskeTeile = ipZuTeile(subnetzmaske);
+
+                // Broadcast-Adresse berechnen (bitweise OR mit invertierter Subnetzmaske)
+                const invertierteSubnetzmaskeTeile = subnetzmaskeTeile.map(teil => 255 - teil);
+                const broadcastTeile = ipTeile.map((teil, index) => (teil & subnetzmaskeTeile[index]) | invertierteSubnetzmaskeTeile[index]);
+                return broadcastTeile.join('.');
+            }
+
+            function berechneAnzahlHosts(cidr) {
+                const hostBits = 32 - cidr; // Berechnung der Host-Bits
+                return Math.pow(2, hostBits) - 2; // -2 für Netzwerk- und Broadcast-Adresse
+            }
+
+            function berechneCIDR(anzahlHosts) {
+                // Die Anzahl der benötigten IP-Adressen (Hosts + Netzwerk + Broadcast)
+                const gesamtAnzahl = anzahlHosts + 2;
+
+                // Berechnung der CIDR
+                const cidr = 32 - Math.ceil(Math.log2(gesamtAnzahl));
+                return cidr; // Gebe die CIDR zurück
+            }
+
+            function faerbeBinaer(input, x) {
+                let farbstring = ""; // Initialisiere den farbigen String
+                let count = x; // Zähle die 1er-Bits
+                for (let i = 0; i < input.length; i++) {
+                    if (input[i] !== ".") { // Ignoriere Punkte
+                        if (count > 0) {
+                            farbstring += '<span style="color:red">' + input[i] + '</span>'; // Färbe 1er rot
+                            count--;
+                        } else {
+                            farbstring += '<span style="color:blue">' + input[i] + '</span>'; // Färbe 0er blau
+                        }
+                    } else {
+                        farbstring += "."; // Füge Punkte hinzu
+                    }
+                }
+                return farbstring; // Gebe den farbigen String zurück
+            }
+
+        </script>
+    </section>
+</body>
+
+</html>
